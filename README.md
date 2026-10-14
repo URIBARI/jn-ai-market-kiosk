@@ -31,14 +31,15 @@
 - [x] 파이프라인 뼈대 구축 (더미 데이터) — `data/kamis_client.py`(더미 모드) + `calc/pricing.py` 연동, `tests/demo_pipeline.py`로 확인 가능
 - [x] LLM 정보 구조화 뼈대 (더미) — `llm/extractor.py`, `llm/schema.py`, STT API 미연동 상태라 '이미 STT를 거친 텍스트'를 입력으로 가정
 - [ ] STT/LLM API 실연동
-- [ ] 거래 제안서 생성
+- [x] 거래 제안서 생성 (더미 전체 파이프라인) — `proposal/generator.py`, `tests/demo_full_pipeline.py`로 STT텍스트→LLM구조화→계산→제안서까지 확인 가능
 - [ ] 사용자 테스트 (시나리오 6건 이상, 테스트 15회 이상)
 
 ### 더미 파이프라인 실행 방법
 
 ```
 python3 tests/demo_pipeline.py          # data -> calc 더미 파이프라인 데모 출력
-python3 tests/demo_llm_pipeline.py      # (텍스트)STT -> LLM 구조화 -> 되물어 확인 -> data/calc 전체 데모
+python3 tests/demo_llm_pipeline.py      # (텍스트)STT -> LLM 구조화 -> 되물어 확인 -> data/calc 데모
+python3 tests/demo_full_pipeline.py     # 전체: STT텍스트 -> LLM 구조화 -> 되물어 확인 -> data/calc -> 거래 제안서
 python3 -m unittest discover -s tests   # 단위 테스트 (표준 라이브러리만 사용, pytest 불필요)
 ```
 
@@ -48,6 +49,13 @@ python3 -m unittest discover -s tests   # 단위 테스트 (표준 라이브러�
 - `llm/extractor.py`는 지금 규칙 기반 더미 파서다. 깔끔한 문장(`"무화과 40kg 오늘 낼게요 9000원에"`)은 잘 뽑지만, 사투리/구어체(`"무화과 마흔 상자 오늘 낼란디"`)는 숫자를 한글로 말하면 못 잡는다 — 이게 실제 LLM이 꼭 필요한 지점이다. 더미 파서는 확신 없는 필드를 추측해서 채우지 않고 `low_confidence_fields`에 명시해서 "되물어 확인" 단계로 넘기도록 설계했다 (틀린 값을 그대로 확정하는 것보다 안전).
 - 희망가격(`hope_price`)이 비어 있는 건 "불확실"이 아니라 "AI가 추천가를 제시해야 하는 정상 케이스"로 구분해뒀다.
 - 상자/개/단 등 kg 이외 단위 -> kg 환산은 아직 TODO (농가·품목마다 상자 크기가 달라서 하드코딩하면 안 됨). 실제 LLM 연동 시 이 부분도 같이 설계 필요.
+
+### 거래 제안서 모듈 설계 메모
+
+- `proposal/generator.py`의 `generate()`가 `llm.extractor.TradeRequest` + `calc.pricing.PriceEstimate`를 받아 제안서(`TradeProposal`)를 만들고, `format_text()`가 사람이 읽는 텍스트로 변환한다. 필드 구성은 사업 지원서 PDF 샘플 출력(거래번호/일자, 품목/중량, 포장방식, 배송조건, 희망가격, 도매시세, 추천가격범위, 예상수익 등) 기준.
+- **포장방식/배송조건은 아직 못 채운다** — 지금 LLM 추출 스키마에 없는 정보라 "(미입력 — 농가 확인 필요)"로 표시하고 disclaimer에 남긴다. 농가가 음성으로 말하게 할지(`llm/schema.py` 확장) 아니면 품목별 기본값을 쓸지 팀에서 정해야 함.
+- "오늘 내는 편이 유리합니다" 같은 타이밍 추천 문구는 **의도적으로 넣지 않았다** — 최근 시세 추세 비교 로직이 아직 없어서, 근거 없이 그런 문구를 넣는 건 과장이라고 판단했다. 나중에 시계열 비교가 생기면 추가.
+- 제안서에는 항상 "참고사항" 섹션이 붙는다: 음성 인식 확신도 낮은 필드, 계산에 쓰인 PLACEHOLDER 상수 고지, 샘플 수가 적을 때 신뢰도 경고 — 사용자 테스트 전까지 숫자를 과신하지 않도록 하기 위함.
 
 ### KAMIS 키 발급 후 해야 할 작업
 
