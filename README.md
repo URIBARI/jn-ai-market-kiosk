@@ -29,6 +29,7 @@
 - [ ] 데이터 가용성 확인 (KAMIS 품목 커버리지: 무화과/복숭아/양파/부추/청포도) — API 키 발급 대기 중
 - [x] 계산 로직 설계 (직거래 절감액 포함) — `calc/pricing.py`, 상수는 PLACEHOLDER (검증 필요)
 - [x] 파이프라인 뼈대 구축 (더미 데이터) — `data/kamis_client.py`(더미 모드) + `calc/pricing.py` 연동, `tests/demo_pipeline.py`로 확인 가능
+- [x] LLM 정보 구조화 뼈대 (더미) — `llm/extractor.py`, `llm/schema.py`, STT API 미연동 상태라 '이미 STT를 거친 텍스트'를 입력으로 가정
 - [ ] STT/LLM API 실연동
 - [ ] 거래 제안서 생성
 - [ ] 사용자 테스트 (시나리오 6건 이상, 테스트 15회 이상)
@@ -36,9 +37,17 @@
 ### 더미 파이프라인 실행 방법
 
 ```
-python3 tests/demo_pipeline.py      # data -> calc 더미 파이프라인 데모 출력
+python3 tests/demo_pipeline.py          # data -> calc 더미 파이프라인 데모 출력
+python3 tests/demo_llm_pipeline.py      # (텍스트)STT -> LLM 구조화 -> 되물어 확인 -> data/calc 전체 데모
 python3 -m unittest discover -s tests   # 단위 테스트 (표준 라이브러리만 사용, pytest 불필요)
 ```
+
+### LLM 모듈 설계 메모
+
+- `llm/schema.py`의 `TRADE_REQUEST_JSON_SCHEMA`가 STT 텍스트 -> LLM 구조화 출력의 계약(contract)이다. 이 스키마는 Claude/Upstage Solar/OpenAI/네이버 하이퍼클로바X 모두 공식 지원하는 구조화 출력(JSON mode/tool use) 형태로 짰기 때문에 벤더가 바뀌어도 `calc/`, `proposal/` 쪽은 안 건드려도 된다.
+- `llm/extractor.py`는 지금 규칙 기반 더미 파서다. 깔끔한 문장(`"무화과 40kg 오늘 낼게요 9000원에"`)은 잘 뽑지만, 사투리/구어체(`"무화과 마흔 상자 오늘 낼란디"`)는 숫자를 한글로 말하면 못 잡는다 — 이게 실제 LLM이 꼭 필요한 지점이다. 더미 파서는 확신 없는 필드를 추측해서 채우지 않고 `low_confidence_fields`에 명시해서 "되물어 확인" 단계로 넘기도록 설계했다 (틀린 값을 그대로 확정하는 것보다 안전).
+- 희망가격(`hope_price`)이 비어 있는 건 "불확실"이 아니라 "AI가 추천가를 제시해야 하는 정상 케이스"로 구분해뒀다.
+- 상자/개/단 등 kg 이외 단위 -> kg 환산은 아직 TODO (농가·품목마다 상자 크기가 달라서 하드코딩하면 안 됨). 실제 LLM 연동 시 이 부분도 같이 설계 필요.
 
 ### KAMIS 키 발급 후 해야 할 작업
 
