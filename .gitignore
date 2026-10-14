@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env/secrets
+.env
+*.key
+secrets.*
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Data (large/raw caches, add exceptions as needed)
+data/raw/
+data/cache/
